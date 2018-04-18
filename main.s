@@ -261,6 +261,7 @@ xtmp    adc #0
 .pend
 
 
+
 params
         .byte 32        ; xidx1
         .byte 64        ; xidx2
@@ -528,7 +529,6 @@ render_all_params .proc
 ;
 ; @param A      input
 ;
-;
 ; @return       A = LSB. X = MSB
 ; @stack        1
 ;
@@ -688,24 +688,25 @@ sinus2  .byte 15.5 + 15 * sin(range(256) * rad(360.0/256))
         * = $3000
 
 
+; Clear routine: write 0 to each byte the plot routine wrote to
+;
+; The plotter_plot routine uses the X-position LSB and MSB and stores them
+; in this routine for each pixel rendered.
 plotter_clear .proc
-        mem = ZP
-
+        lda #0
    .for px = 0, px < 64, px += 1
 
-        ldx xsinus + px
         ldy ysinus + px
-        lda xlo,x
-        sta mem
-        lda xhi,x
-        sta mem + 1
-        lda #0
-        sta (mem),y
+        sta $fce2,y     ; adjusted by plotter_plot
     .next
         rts
 .pend
 
 
+        .align 256
+
+; Render plots and update the clear routine
+;
 plotter_plot .proc
 
         mem = ZP
@@ -716,7 +717,11 @@ plotter_plot .proc
         ldy ysinus + px
         lda xlo,x
         sta mem
+        sta plotter_clear + 6 + (px * 6)        ; LSB of operand of sta $xxxx,y
+                                                ; in the plotter_clear code
         lda xhi,x
+        sta plotter_clear + 7 + (px * 6)        ; MSB of operand of sta $xxxx,y
+                                                ; the the plotter_clear code
         sta mem + 1
         lda (mem),y
         ora xbits,x
